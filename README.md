@@ -97,6 +97,12 @@ blackout_rate = 0.18        # blackout gained per g above tolerance, per second
 recovery_rate = 0.4         # vision recovered per second once the g comes off
 stamina_drain = 0.012       # stamina lost per g above 3, per second
 stamina_recovery = 0.1      # stamina recovered per second below 3 g
+
+# Spotting (client-side markers)
+render_distance = 9000      # aircraft drawn within this range
+detection_range = 7000      # enemy marker within the view cone
+awareness_range = 1500      # enemy marker all-round
+view_cone_deg = 25          # view-cone half-angle
 ```
 
 Any key may be omitted (clients keep their built-in default). War Thunder's

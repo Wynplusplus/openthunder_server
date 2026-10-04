@@ -26,6 +26,12 @@ recovery_rate = 0.4
 stamina_drain = 0.012
 # Stamina recovered per second below 3 g.
 stamina_recovery = 0.1
+# Spotting: aircraft are drawn within render_distance; enemies get a marker
+# within detection_range inside the view cone, or always within awareness_range.
+render_distance = 9000
+detection_range = 7000
+awareness_range = 1500
+view_cone_deg = 25
 ";
 
 /// Load `crew.conf`, falling back to [`DEFAULT`] when it cannot be read.
