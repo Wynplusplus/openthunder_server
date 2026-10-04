@@ -84,6 +84,14 @@ impl Shared {
         let mut writers = self.writers.lock().unwrap();
         writers.retain(|_, stream| stream.write_all(line.as_bytes()).is_ok());
     }
+
+    /// Broadcast to everyone except `exclude` (used for hit relay, so the
+    /// shooter does not receive its own hit back).
+    fn broadcast_except(&self, exclude: u64, message: &ServerMessage) {
+        let line = format!("{}\n", message.to_line());
+        let mut writers = self.writers.lock().unwrap();
+        writers.retain(|id, stream| *id == exclude || stream.write_all(line.as_bytes()).is_ok());
+    }
 }
 
 /// Run the server on `bind` with the given map until the process is killed.
@@ -240,6 +248,20 @@ fn read_loop(reader: &mut impl BufRead, shared: &Shared, id: u64) -> std::io::Re
             }
             Ok(ClientMessage::Leave) => return Ok(()),
             Ok(ClientMessage::Join { .. }) => {}
+            Ok(ClientMessage::Hit {
+                target,
+                section,
+                damage,
+            }) => {
+                shared.broadcast_except(
+                    id,
+                    &ServerMessage::Hit {
+                        target,
+                        section,
+                        damage,
+                    },
+                );
+            }
             Err(err) => eprintln!("[server] bad message from id={id}: {err}"),
         }
     }
