@@ -119,20 +119,33 @@ max_players = 16
 Adding a map is just dropping a new `.map` file in `maps/`. Different maps can
 run the same gamemode with different rules, or entirely different gamemodes.
 
+Two ship:
+
+- `training.map` — **Training Islands**, `free_flight`.
+- `pacific_islands.map` — **Pacific Islands**, `team_deathmatch` (island chain,
+  first team to 50 kills, 15-minute rounds). The client builds matching island
+  terrain for it.
+
 ---
 
 ## Gamemodes
 
-A gamemode is a configurable rule set the server ticks. The default is
-`free_flight` (no objectives). The rules come from the map, so a gamemode can be
-configured per map.
+A gamemode is a configurable rule set the server ticks. The rules come from the
+map, so a gamemode can be configured per map. Two ship:
+
+- **`free_flight`** — no objectives, just fly. Rule: `max_players`.
+- **`team_deathmatch`** — two teams race to a kill target. Rules: `max_players`,
+  `score_limit`, `time_limit`. The server balances players across the teams,
+  credits kills (to the last attacker) when a client reports its death, and
+  restarts the round automatically when a team hits the target or time runs out.
 
 To add one:
 
 1. Implement the `GameMode` trait in `src/gamemode.rs`.
 2. Register it in `create()` and `registered_ids()`.
 
-That is the whole extension point — see `FreeFlight` for a minimal example.
+That is the whole extension point — see `FreeFlight` for a minimal example and
+`TeamDeathmatch` for a scoring one.
 
 ---
 
@@ -144,8 +157,13 @@ game — keep both copies in sync and bump `PROTOCOL_VERSION` on any change.
 
 Messages:
 
-- Client → server: `JOIN`, `STATE`, `LEAVE`, `HIT`
-- Server → client: `WELCOME`, `PLANES`, `CREW`, `SNAPSHOT`, `PLAYER_LEFT`, `HIT`, `ERROR`
+- Client → server: `JOIN`, `STATE`, `LEAVE`, `HIT`, `DEATH`
+- Server → client: `WELCOME`, `PLANES`, `CREW`, `SNAPSHOT`, `PLAYER_LEFT`,
+  `MATCH`, `KILL`, `HIT`, `ERROR`
+
+`WELCOME` carries the player's team, `SNAPSHOT` carries each player's team,
+kills and deaths, `MATCH` carries the team scores and round timer, and `KILL`
+carries a kill-feed line (killer and victim names).
 
 ---
 

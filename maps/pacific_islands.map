@@ -1,0 +1,15 @@
+# Pacific Islands — Team Deathmatch
+#
+# Two teams fight over an island chain. First to `score_limit` kills wins, or
+# the team with the most kills when `time_limit` runs out. The match resets and
+# starts a fresh round automatically.
+#
+# Rules are passed to the gamemode; a gamemode reads the keys it understands.
+
+name = Pacific Islands
+gamemode = team_deathmatch
+
+# team_deathmatch rules
+max_players = 16
+score_limit = 50
+time_limit = 900

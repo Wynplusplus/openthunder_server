@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 
 use crate::gamemode::{self, GameMode, PlayerView, TickContext};
 use crate::map::MapConfig;
-use crate::protocol::{ClientMessage, PlayerSnapshot, ServerMessage};
+use crate::protocol::{ClientMessage, NO_TEAM, PlayerSnapshot, ServerMessage};
 
 /// Snapshot rate.
 const TICK_HZ: f32 = 20.0;
@@ -27,6 +27,12 @@ struct Player {
     position: [f32; 3],
     rotation: [f32; 4],
     velocity: [f32; 3],
+    /// Team index (0/1), or `NO_TEAM`.
+    team: u8,
+    kills: u32,
+    deaths: u32,
+    /// Who last hit us, for kill credit on death.
+    last_attacker: Option<u64>,
 }
 
 impl Default for Player {
@@ -37,6 +43,10 @@ impl Default for Player {
             position: [0.0, 1000.0, 0.0],
             rotation: [0.0, 0.0, 0.0, 1.0],
             velocity: [0.0, 0.0, 0.0],
+            team: NO_TEAM,
+            kills: 0,
+            deaths: 0,
+            last_attacker: None,
         }
     }
 }
@@ -58,6 +68,9 @@ impl Shared {
                 id: *id,
                 name: player.name.clone(),
                 plane: player.plane.clone(),
+                team: player.team,
+                kills: player.kills,
+                deaths: player.deaths,
                 position: player.position,
                 rotation: player.rotation,
                 velocity: player.velocity,
@@ -75,6 +88,9 @@ impl Shared {
                 name: player.name.clone(),
                 plane: player.plane.clone(),
                 position: player.position,
+                team: player.team,
+                kills: player.kills,
+                deaths: player.deaths,
             })
             .collect()
     }
@@ -112,6 +128,7 @@ pub fn run(
         )
     })?;
     mode.on_start(&map);
+    let uses_teams = mode.uses_teams();
 
     let max_players = map.rule_u32("max_players", 16) as usize;
     let listener = TcpListener::bind(bind)?;
@@ -144,7 +161,8 @@ pub fn run(
                 let planes = planes.clone();
                 let crew = crew.clone();
                 std::thread::spawn(move || {
-                    if let Err(err) = handle_client(stream, shared, map, planes, crew, max_players)
+                    if let Err(err) =
+                        handle_client(stream, shared, map, planes, crew, max_players, uses_teams)
                     {
                         eprintln!("[server] client error: {err}");
                     }
@@ -163,6 +181,7 @@ fn handle_client(
     planes: Vec<(String, String)>,
     crew: String,
     max_players: usize,
+    uses_teams: bool,
 ) -> std::io::Result<()> {
     stream.set_nodelay(true)?;
     stream.set_write_timeout(Some(Duration::from_secs(5)))?;
@@ -207,11 +226,21 @@ fn handle_client(
     }
 
     let id = shared.next_id.fetch_add(1, Ordering::Relaxed);
+    // Balance players across the two teams.
+    let team = if uses_teams {
+        let players = shared.players.lock().unwrap();
+        let team0 = players.values().filter(|p| p.team == 0).count();
+        let team1 = players.values().filter(|p| p.team == 1).count();
+        if team0 <= team1 { 0 } else { 1 }
+    } else {
+        NO_TEAM
+    };
     shared.players.lock().unwrap().insert(
         id,
         Player {
             name: name.clone(),
             plane: plane.clone(),
+            team,
             ..Player::default()
         },
     );
@@ -221,6 +250,7 @@ fn handle_client(
             id,
             map: map.name.clone(),
             gamemode: map.gamemode.clone(),
+            team,
         },
     )?;
     // Send every plane the server has so the client can load them.
@@ -277,6 +307,10 @@ fn read_loop(reader: &mut impl BufRead, shared: &Shared, id: u64) -> std::io::Re
                 section,
                 damage,
             }) => {
+                // Remember who last hit the target, for kill credit.
+                if let Some(player) = shared.players.lock().unwrap().get_mut(&target) {
+                    player.last_attacker = Some(id);
+                }
                 shared.broadcast_except(
                     id,
                     &ServerMessage::Hit {
@@ -285,6 +319,48 @@ fn read_loop(reader: &mut impl BufRead, shared: &Shared, id: u64) -> std::io::Re
                         damage,
                     },
                 );
+            }
+            Ok(ClientMessage::Death) => {
+                // Credit the last attacker and record the death.
+                let (killer, victim_name) = {
+                    let mut players = shared.players.lock().unwrap();
+                    let attacker = players.get(&id).and_then(|player| player.last_attacker);
+                    let victim_name = players
+                        .get(&id)
+                        .map(|player| player.name.clone())
+                        .unwrap_or_default();
+                    if let Some(victim) = players.get_mut(&id) {
+                        victim.deaths += 1;
+                        victim.last_attacker = None;
+                    }
+                    let killer = match attacker {
+                        Some(attacker) if attacker != id => {
+                            if let Some(player) = players.get_mut(&attacker) {
+                                player.kills += 1;
+                                Some(attacker)
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    };
+                    (killer, victim_name)
+                };
+                let killer = killer.unwrap_or(0);
+                let killer_name = shared
+                    .players
+                    .lock()
+                    .unwrap()
+                    .get(&killer)
+                    .map(|player| player.name.clone())
+                    .unwrap_or_else(|| "the ground".into());
+                println!("[server] {killer_name} destroyed {victim_name} (id={id})");
+                shared.broadcast(&ServerMessage::Kill {
+                    killer,
+                    victim: id,
+                    killer_name,
+                    victim_name,
+                });
             }
             Err(err) => eprintln!("[server] bad message from id={id}: {err}"),
         }
@@ -305,8 +381,20 @@ fn tick_loop(shared: Arc<Shared>, map: MapConfig, mut mode: Box<dyn GameMode>) {
             elapsed_secs: start.elapsed().as_secs_f32(),
             tick,
         };
-        if mode.on_tick(&ctx).round_over {
-            println!("[server] round over (tick {tick})");
+        let outcome = mode.on_tick(&ctx);
+        if let Some(state) = &outcome.match_state {
+            shared.broadcast(&ServerMessage::Match {
+                scores: state.scores.clone(),
+                score_limit: state.score_limit,
+                time_left: state.time_left,
+            });
+        }
+        if outcome.round_over {
+            for player in shared.players.lock().unwrap().values_mut() {
+                player.kills = 0;
+                player.deaths = 0;
+            }
+            println!("[server] round over (tick {tick}); scores reset");
         }
         shared.broadcast(&ServerMessage::Snapshot {
             players: shared.snapshot(),
