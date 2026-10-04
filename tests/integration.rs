@@ -49,7 +49,10 @@ fn client_joins_and_receives_snapshots() {
     writer.flush().unwrap();
     let mut line = String::new();
     reader.read_line(&mut line).unwrap();
-    assert!(line.starts_with("WELCOME"), "expected WELCOME, got {line:?}");
+    assert!(
+        line.starts_with("WELCOME"),
+        "expected WELCOME, got {line:?}"
+    );
     assert!(line.contains("Training Islands"), "map name in WELCOME");
 
     // Send state and wait for a snapshot that contains us.

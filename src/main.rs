@@ -24,7 +24,10 @@ fn main() {
     let maps = match map::load_dir(&maps_dir) {
         Ok(maps) => maps,
         Err(err) => {
-            eprintln!("[server] could not read maps dir '{}': {err}", maps_dir.display());
+            eprintln!(
+                "[server] could not read maps dir '{}': {err}",
+                maps_dir.display()
+            );
             std::process::exit(1);
         }
     };

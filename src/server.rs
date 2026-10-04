@@ -162,23 +162,27 @@ fn handle_client(
     let (name, plane) = match ClientMessage::parse(&line) {
         Ok(ClientMessage::Join { name, plane }) => (name, plane),
         Ok(_) => {
-            let _ = write_line(&mut writer, &ServerMessage::Error {
-                reason: "expected JOIN first".into(),
-            });
+            let _ = write_line(
+                &mut writer,
+                &ServerMessage::Error {
+                    reason: "expected JOIN first".into(),
+                },
+            );
             return Ok(());
         }
         Err(err) => {
-            let _ = write_line(&mut writer, &ServerMessage::Error {
-                reason: err.0,
-            });
+            let _ = write_line(&mut writer, &ServerMessage::Error { reason: err.0 });
             return Ok(());
         }
     };
 
     if shared.players.lock().unwrap().len() >= max_players {
-        let _ = write_line(&mut writer, &ServerMessage::Error {
-            reason: "server full".into(),
-        });
+        let _ = write_line(
+            &mut writer,
+            &ServerMessage::Error {
+                reason: "server full".into(),
+            },
+        );
         return Ok(());
     }
 
@@ -191,11 +195,14 @@ fn handle_client(
             ..Player::default()
         },
     );
-    write_line(&mut writer, &ServerMessage::Welcome {
-        id,
-        map: map.name.clone(),
-        gamemode: map.gamemode.clone(),
-    })?;
+    write_line(
+        &mut writer,
+        &ServerMessage::Welcome {
+            id,
+            map: map.name.clone(),
+            gamemode: map.gamemode.clone(),
+        },
+    )?;
     shared
         .writers
         .lock()
