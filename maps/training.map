@@ -1,0 +1,10 @@
+# Training Islands
+#
+# The default map. Runs the "free_flight" gamemode: no objectives, just fly.
+# Rules are passed to the gamemode; a gamemode reads the keys it understands.
+
+name = Training Islands
+gamemode = free_flight
+
+# free_flight rules
+max_players = 16

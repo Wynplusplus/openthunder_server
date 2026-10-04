@@ -1,0 +1,8 @@
+[package]
+name = "openthunder_server"
+version = "0.1.0"
+edition = "2024"
+description = "Dedicated server for OpenThunder, an unofficial War Thunder Air-RB-style flight prototype."
+license = "GPL-3.0-or-later"
+
+[dependencies]
