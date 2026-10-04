@@ -10,6 +10,7 @@
 
 mod gamemode;
 mod map;
+mod plane;
 mod protocol;
 mod server;
 
@@ -54,7 +55,34 @@ fn main() {
     };
 
     println!("OpenThunder dedicated server");
-    if let Err(err) = server::run(&bind, map) {
+
+    // Load the planes so clients can fetch them on connect.
+    let planes_dir =
+        PathBuf::from(arg_value(&args, "--planes").unwrap_or_else(|| "planes".to_string()));
+    let planes = match plane::load_dir(&planes_dir) {
+        Ok(planes) => planes,
+        Err(err) => {
+            eprintln!(
+                "[server] could not read planes dir '{}': {err}",
+                planes_dir.display()
+            );
+            std::process::exit(1);
+        }
+    };
+    if planes.is_empty() {
+        eprintln!("[server] no planes found in '{}'", planes_dir.display());
+        std::process::exit(1);
+    }
+    println!(
+        "[server] planes: {}",
+        planes
+            .iter()
+            .map(|plane| plane.id.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+
+    if let Err(err) = server::run(&bind, map, plane::as_pairs(&planes)) {
         eprintln!("[server] fatal: {err}");
         std::process::exit(1);
     }

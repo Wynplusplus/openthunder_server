@@ -26,11 +26,59 @@ cargo run --release -- --bind 0.0.0.0:7777 --map training
 | `--bind <addr>` | `0.0.0.0:7777` | Address to listen on |
 | `--maps <dir>` | `maps` | Where to find `*.map` files |
 | `--map <id\|name>` | first map | Which map to run |
+| `--planes <dir>` | `planes` | Where the plane directories live |
 
 Then either pick the server in the game's launcher, or run the game directly:
 
 ```sh
 cargo run -- --server 127.0.0.1:7777
+```
+
+---
+
+## Planes
+
+Planes live in `planes/`, one **directory per plane**, each holding that plane's
+assets:
+
+```
+planes/
+  f4u-4-corsair/
+    plane.conf          # flight model + model + armament
+  bf-109-g6/
+    plane.conf
+  spitfire-f-mk-ixc/
+    plane.conf
+```
+
+`plane.conf` is a `key = value` file with `[gun N]` sections. It holds the whole
+**flight model** (mass, wing, engine power, lift/drag, handling, limits), the
+**model** parameters (length, wing chord, tail span, colour) and the
+**armament**. Copy any shipped plane as a template.
+
+**To add a plane:** create `planes/<id>/` with a `plane.conf` in it — nothing
+else to do. The server ships every plane's config to clients when they connect,
+so clients load them automatically (no client rebuild). Any other files (notes,
+future model meshes, ...) can live in the same directory.
+
+Example:
+
+```text
+name = Test Fighter
+mass = 3000
+wing_span = 9.4
+max_power = 1500000
+body_color = 0.5 0.5 0.52
+
+[gun 0]
+name = Test Cannon
+caliber_mm = 20
+rounds_per_second = 10
+muzzle_velocity = 850
+damage = 11
+ammo = 300
+muzzle = -2.5 -0.05 -1.0
+muzzle = 2.5 -0.05 -1.0
 ```
 
 ---

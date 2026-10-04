@@ -95,7 +95,7 @@ impl Shared {
 }
 
 /// Run the server on `bind` with the given map until the process is killed.
-pub fn run(bind: &str, map: MapConfig) -> std::io::Result<()> {
+pub fn run(bind: &str, map: MapConfig, planes: Vec<(String, String)>) -> std::io::Result<()> {
     let mut mode = gamemode::create(&map.gamemode).ok_or_else(|| {
         std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
@@ -111,9 +111,11 @@ pub fn run(bind: &str, map: MapConfig) -> std::io::Result<()> {
     let max_players = map.rule_u32("max_players", 16) as usize;
     let listener = TcpListener::bind(bind)?;
     println!(
-        "[server] '{}' listening on {bind}  (gamemode: {}, max players: {max_players})",
+        "[server] '{}' listening on {bind}  (gamemode: {}, max players: {}, planes: {})",
         map.name,
         mode.name(),
+        max_players,
+        planes.len(),
     );
 
     let shared = Arc::new(Shared {
@@ -134,8 +136,9 @@ pub fn run(bind: &str, map: MapConfig) -> std::io::Result<()> {
             Ok(stream) => {
                 let shared = Arc::clone(&shared);
                 let map = map.clone();
+                let planes = planes.clone();
                 std::thread::spawn(move || {
-                    if let Err(err) = handle_client(stream, shared, map, max_players) {
+                    if let Err(err) = handle_client(stream, shared, map, planes, max_players) {
                         eprintln!("[server] client error: {err}");
                     }
                 });
@@ -150,6 +153,7 @@ fn handle_client(
     stream: TcpStream,
     shared: Arc<Shared>,
     map: MapConfig,
+    planes: Vec<(String, String)>,
     max_players: usize,
 ) -> std::io::Result<()> {
     stream.set_nodelay(true)?;
@@ -211,6 +215,8 @@ fn handle_client(
             gamemode: map.gamemode.clone(),
         },
     )?;
+    // Send every plane the server has so the client can load them.
+    write_line(&mut writer, &ServerMessage::Planes { planes })?;
     shared
         .writers
         .lock()
