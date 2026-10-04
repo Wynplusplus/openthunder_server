@@ -95,7 +95,12 @@ impl Shared {
 }
 
 /// Run the server on `bind` with the given map until the process is killed.
-pub fn run(bind: &str, map: MapConfig, planes: Vec<(String, String)>) -> std::io::Result<()> {
+pub fn run(
+    bind: &str,
+    map: MapConfig,
+    planes: Vec<(String, String)>,
+    crew: String,
+) -> std::io::Result<()> {
     let mut mode = gamemode::create(&map.gamemode).ok_or_else(|| {
         std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
@@ -137,8 +142,10 @@ pub fn run(bind: &str, map: MapConfig, planes: Vec<(String, String)>) -> std::io
                 let shared = Arc::clone(&shared);
                 let map = map.clone();
                 let planes = planes.clone();
+                let crew = crew.clone();
                 std::thread::spawn(move || {
-                    if let Err(err) = handle_client(stream, shared, map, planes, max_players) {
+                    if let Err(err) = handle_client(stream, shared, map, planes, crew, max_players)
+                    {
                         eprintln!("[server] client error: {err}");
                     }
                 });
@@ -154,6 +161,7 @@ fn handle_client(
     shared: Arc<Shared>,
     map: MapConfig,
     planes: Vec<(String, String)>,
+    crew: String,
     max_players: usize,
 ) -> std::io::Result<()> {
     stream.set_nodelay(true)?;
@@ -217,6 +225,10 @@ fn handle_client(
     )?;
     // Send every plane the server has so the client can load them.
     write_line(&mut writer, &ServerMessage::Planes { planes })?;
+    // Send this server's pilot model (g-tolerance, blackout, stamina).
+    if !crew.trim().is_empty() {
+        write_line(&mut writer, &ServerMessage::Crew { config: crew })?;
+    }
     shared
         .writers
         .lock()

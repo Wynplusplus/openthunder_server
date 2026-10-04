@@ -45,7 +45,7 @@ fn client_joins_and_receives_snapshots() {
     let mut reader = BufReader::new(stream);
 
     // Join.
-    writeln!(writer, "JOIN\t1\tWyn\tF4U-4 Corsair").unwrap();
+    writeln!(writer, "JOIN\t2\tWyn\tF4U-4 Corsair").unwrap();
     writer.flush().unwrap();
     let mut line = String::new();
     reader.read_line(&mut line).unwrap();
@@ -54,6 +54,26 @@ fn client_joins_and_receives_snapshots() {
         "expected WELCOME, got {line:?}"
     );
     assert!(line.contains("Training Islands"), "map name in WELCOME");
+
+    // The server ships its planes and pilot crew config right after WELCOME.
+    let mut saw_planes = false;
+    let mut saw_crew = false;
+    for _ in 0..3 {
+        line.clear();
+        if reader.read_line(&mut line).unwrap() == 0 {
+            break;
+        }
+        saw_planes |= line.starts_with("PLANES");
+        if line.starts_with("CREW") {
+            saw_crew = true;
+            assert!(
+                line.contains("g_tolerance"),
+                "crew config should carry g_tolerance, got {line:?}"
+            );
+        }
+    }
+    assert!(saw_planes, "expected a PLANES message");
+    assert!(saw_crew, "expected a CREW message");
 
     // Send state and wait for a snapshot that contains us.
     writeln!(

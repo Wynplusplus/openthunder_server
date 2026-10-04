@@ -27,6 +27,7 @@ cargo run --release -- --bind 0.0.0.0:7777 --map training
 | `--maps <dir>` | `maps` | Where to find `*.map` files |
 | `--map <id\|name>` | first map | Which map to run |
 | `--planes <dir>` | `planes` | Where the plane directories live |
+| `--crew <file>` | `crew.conf` | Pilot crew config shipped to clients |
 
 Then either pick the server in the game's launcher, or run the game directly:
 
@@ -83,6 +84,27 @@ muzzle = 2.5 -0.05 -1.0
 
 ---
 
+## Pilot crew
+
+`crew.conf` sets the pilot model used by **every client on this server**, and is
+shipped to clients when they connect (the `CREW` message). Lower `g_tolerance`
+for a harsher, more realistic server; raise it for a forgiving one.
+
+```text
+g_tolerance = 6.5           # positive g held before the pilot blacks out
+negative_g_tolerance = -3.0 # negative g before the pilot reds out
+blackout_rate = 0.18        # blackout gained per g above tolerance, per second
+recovery_rate = 0.4         # vision recovered per second once the g comes off
+stamina_drain = 0.012       # stamina lost per g above 3, per second
+stamina_recovery = 0.1      # stamina recovered per second below 3 g
+```
+
+Any key may be omitted (clients keep their built-in default). War Thunder's
+maxed "G-tolerance" crew skill is about 6.9 g. If the file is missing the server
+ships its built-in defaults.
+
+---
+
 ## Maps
 
 A map is a small `name = value` file under `maps/`. It picks the gamemode and
@@ -122,8 +144,8 @@ game — keep both copies in sync and bump `PROTOCOL_VERSION` on any change.
 
 Messages:
 
-- Client → server: `JOIN`, `STATE`, `LEAVE`
-- Server → client: `WELCOME`, `SNAPSHOT`, `PLAYER_LEFT`, `ERROR`
+- Client → server: `JOIN`, `STATE`, `LEAVE`, `HIT`
+- Server → client: `WELCOME`, `PLANES`, `CREW`, `SNAPSHOT`, `PLAYER_LEFT`, `HIT`, `ERROR`
 
 ---
 

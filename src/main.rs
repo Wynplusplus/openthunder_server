@@ -8,6 +8,7 @@
 //!
 //! Maps live in `maps/*.map` and choose the gamemode and its rules.
 
+mod crew;
 mod gamemode;
 mod map;
 mod plane;
@@ -56,6 +57,21 @@ fn main() {
 
     println!("OpenThunder dedicated server");
 
+    // Pilot crew skills, shipped to every client that connects.
+    let crew_path =
+        PathBuf::from(arg_value(&args, "--crew").unwrap_or_else(|| "crew.conf".to_string()));
+    let crew = crew::load(&crew_path);
+    match crew::value(&crew, "g_tolerance") {
+        Some(g) => println!(
+            "[server] crew from '{}': pilot tolerates {g:.1} g",
+            crew_path.display()
+        ),
+        None => println!(
+            "[server] crew from '{}' (no g_tolerance set; clients keep defaults)",
+            crew_path.display()
+        ),
+    }
+
     // Load the planes so clients can fetch them on connect.
     let planes_dir =
         PathBuf::from(arg_value(&args, "--planes").unwrap_or_else(|| "planes".to_string()));
@@ -82,7 +98,7 @@ fn main() {
             .join(", ")
     );
 
-    if let Err(err) = server::run(&bind, map, plane::as_pairs(&planes)) {
+    if let Err(err) = server::run(&bind, map, plane::as_pairs(&planes), crew) {
         eprintln!("[server] fatal: {err}");
         std::process::exit(1);
     }
