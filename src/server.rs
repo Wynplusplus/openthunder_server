@@ -253,7 +253,13 @@ fn read_loop(reader: &mut impl BufRead, shared: &Shared, id: u64) -> std::io::Re
                 }
             }
             Ok(ClientMessage::Leave) => return Ok(()),
-            Ok(ClientMessage::Join { .. }) => {}
+            Ok(ClientMessage::Join { name, plane }) => {
+                // A later JOIN updates our plane (chosen in the spawn menu).
+                if let Some(player) = shared.players.lock().unwrap().get_mut(&id) {
+                    player.name = name;
+                    player.plane = plane;
+                }
+            }
             Ok(ClientMessage::Hit {
                 target,
                 section,
