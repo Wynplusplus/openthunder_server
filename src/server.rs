@@ -114,7 +114,7 @@ impl Shared {
 pub fn run(
     bind: &str,
     map: MapConfig,
-    planes: Vec<(String, String)>,
+    planes: Vec<crate::protocol::PlaneWire>,
     crew: String,
 ) -> std::io::Result<()> {
     let mut mode = gamemode::create(&map.gamemode).ok_or_else(|| {
@@ -178,7 +178,7 @@ fn handle_client(
     stream: TcpStream,
     shared: Arc<Shared>,
     map: MapConfig,
-    planes: Vec<(String, String)>,
+    planes: Vec<crate::protocol::PlaneWire>,
     crew: String,
     max_players: usize,
     uses_teams: bool,

@@ -8,6 +8,7 @@
 //!
 //! Maps live in `maps/*.map` and choose the gamemode and its rules.
 
+mod base64;
 mod crew;
 mod gamemode;
 mod map;
@@ -72,25 +73,34 @@ fn main() {
         ),
     }
 
-    // Load the planes so clients can fetch them on connect.
-    let planes_dir =
-        PathBuf::from(arg_value(&args, "--planes").unwrap_or_else(|| "planes".to_string()));
-    let planes = match plane::load_dir(&planes_dir) {
-        Ok(planes) => planes,
-        Err(err) => {
-            eprintln!(
-                "[server] could not read planes dir '{}': {err}",
-                planes_dir.display()
-            );
-            std::process::exit(1);
+    // Planes: prefer those embedded in the mission (self-contained), otherwise
+    // fall back to the `planes/` directory.
+    let mut planes = plane::from_map(&map);
+    let source = if !planes.is_empty() {
+        "embedded in the mission"
+    } else {
+        let planes_dir =
+            PathBuf::from(arg_value(&args, "--planes").unwrap_or_else(|| "planes".to_string()));
+        match plane::load_dir(&planes_dir) {
+            Ok(loaded) => {
+                planes = loaded;
+                "planes/"
+            }
+            Err(err) => {
+                eprintln!(
+                    "[server] could not read planes dir '{}': {err}",
+                    planes_dir.display()
+                );
+                std::process::exit(1);
+            }
         }
     };
     if planes.is_empty() {
-        eprintln!("[server] no planes found in '{}'", planes_dir.display());
+        eprintln!("[server] no planes in the mission and none found in 'planes/'");
         std::process::exit(1);
     }
     println!(
-        "[server] planes: {}",
+        "[server] planes ({source}): {}",
         planes
             .iter()
             .map(|plane| plane.id.as_str())
@@ -98,7 +108,7 @@ fn main() {
             .join(", ")
     );
 
-    if let Err(err) = server::run(&bind, map, plane::as_pairs(&planes), crew) {
+    if let Err(err) = server::run(&bind, map, plane::as_wire(&planes), crew) {
         eprintln!("[server] fatal: {err}");
         std::process::exit(1);
     }

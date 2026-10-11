@@ -16,6 +16,17 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// A plane embedded in the mission file (config text + optional Base64 model).
+#[derive(Clone, Debug, PartialEq)]
+pub struct EmbeddedPlane {
+    pub id: String,
+    /// The plane's full `plane.conf` text.
+    pub config: String,
+    pub model_name: Option<String>,
+    /// Base64-encoded glTF/GLB bytes, forwarded to clients verbatim.
+    pub model_data: Option<String>,
+}
+
 /// A parsed map definition.
 #[derive(Clone, Debug)]
 pub struct MapConfig {
@@ -27,6 +38,9 @@ pub struct MapConfig {
     pub gamemode: String,
     /// Gamemode rules, as raw key/value pairs the gamemode interprets.
     pub rules: BTreeMap<String, String>,
+    /// Planes embedded in the mission (config + model), so the server needs no
+    /// separate `planes/` setup.
+    pub planes: Vec<EmbeddedPlane>,
     /// The raw file text, shipped verbatim to clients so they can build the
     /// world (see the game's `openthunder::map_doc`).
     pub text: String,
@@ -39,19 +53,86 @@ impl MapConfig {
         let mut name = id.to_string();
         let mut gamemode = "free_flight".to_string();
         let mut rules = BTreeMap::new();
-        // Once a `[section]` starts, the `key = value` lines inside it belong to
-        // the world description, not the gamemode rules.
-        let mut in_section = false;
+        let mut planes: Vec<EmbeddedPlane> = Vec::new();
+
+        #[derive(Clone, Copy, PartialEq)]
+        enum Section {
+            Header,
+            Other,
+            Plane,
+        }
+        let mut section = Section::Header;
+        let mut plane_id = String::new();
+        let mut plane_config = String::new();
+        let mut plane_model_name: Option<String> = None;
+        let mut plane_model_data: Option<String> = None;
+
+        let flush_plane = |planes: &mut Vec<EmbeddedPlane>,
+                           id: &str,
+                           config: &mut String,
+                           model_name: &mut Option<String>,
+                           model_data: &mut Option<String>| {
+            planes.push(EmbeddedPlane {
+                id: id.to_string(),
+                config: std::mem::take(config),
+                model_name: model_name.take(),
+                model_data: model_data.take(),
+            });
+        };
+
         for line in text.lines() {
             let line = line.trim();
             if line.is_empty() || line.starts_with('#') {
                 continue;
             }
-            if line.starts_with('[') && line.ends_with(']') {
-                in_section = true;
+            if let Some(inner) = line.strip_prefix('[').and_then(|l| l.strip_suffix(']')) {
+                let inner = inner.trim();
+                let lower = inner.to_lowercase();
+                // `[gun N]` inside a plane block belongs to the plane config.
+                if section == Section::Plane && lower.starts_with("gun") {
+                    plane_config.push_str(line);
+                    plane_config.push('\n');
+                    continue;
+                }
+                if section == Section::Plane {
+                    flush_plane(
+                        &mut planes,
+                        &plane_id,
+                        &mut plane_config,
+                        &mut plane_model_name,
+                        &mut plane_model_data,
+                    );
+                }
+                if let Some(rest) = inner.strip_prefix("plane") {
+                    plane_id = rest.trim().to_string();
+                    plane_config.clear();
+                    plane_model_name = None;
+                    plane_model_data = None;
+                    section = Section::Plane;
+                } else {
+                    section = Section::Other;
+                }
                 continue;
             }
-            if in_section {
+            if section == Section::Plane {
+                if let Some((key, value)) = line.split_once('=') {
+                    match key.trim() {
+                        "model_name" => {
+                            plane_model_name = Some(value.trim().to_string());
+                            continue;
+                        }
+                        "model_data" => {
+                            plane_model_data = Some(value.trim().to_string());
+                            continue;
+                        }
+                        _ => {}
+                    }
+                }
+                plane_config.push_str(line);
+                plane_config.push('\n');
+                continue;
+            }
+            if section != Section::Header {
                 continue;
             }
             let Some((key, value)) = line.split_once('=') else {
@@ -67,11 +148,22 @@ impl MapConfig {
                 }
             }
         }
+        if section == Section::Plane {
+            flush_plane(
+                &mut planes,
+                &plane_id,
+                &mut plane_config,
+                &mut plane_model_name,
+                &mut plane_model_data,
+            );
+        }
+
         Self {
             id: id.to_string(),
             name,
             gamemode,
             rules,
+            planes,
             text: text.to_string(),
             source,
         }

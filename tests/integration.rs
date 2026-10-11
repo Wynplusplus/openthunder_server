@@ -50,7 +50,7 @@ fn join(port: u16, name: &str) -> (TcpStream, BufReader<TcpStream>, String) {
     let stream = wait_for_server(port);
     let mut writer = stream.try_clone().unwrap();
     let mut reader = BufReader::new(stream);
-    writeln!(writer, "JOIN\t4\t{name}\tF4U-4 Corsair").unwrap();
+    writeln!(writer, "JOIN\t5\t{name}\tF4U-4 Corsair").unwrap();
     writer.flush().unwrap();
     let mut welcome = String::new();
     reader.read_line(&mut welcome).unwrap();

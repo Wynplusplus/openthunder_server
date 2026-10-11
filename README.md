@@ -39,28 +39,34 @@ cargo run -- --server 127.0.0.1:7777
 
 ## Planes
 
-Planes live in `planes/`, one **directory per plane**, each holding that plane's
-assets:
+Planes come from **one of two places**:
 
-```
-planes/
-  f4u-4-corsair/
-    plane.conf          # flight model + model + armament
-  bf-109-g6/
-    plane.conf
-  spitfire-f-mk-ixc/
-    plane.conf
-```
+1. **Embedded in the mission** (recommended) — `[plane <id>]` blocks inside the
+   `.map` file. Each block carries the plane's whole config *and*, optionally,
+   its glTF/GLB model bytes (Base64), so a single mission file is
+   **self-contained**: drop it in `maps/` and both the world and the planes just
+   work, with no `planes/` directory at all.
+2. **A `planes/` directory** — one directory per plane, used as a fallback when
+   the mission embeds none:
 
-`plane.conf` is a `key = value` file with `[gun N]` sections. It holds the whole
-**flight model** (mass, wing, engine power, lift/drag, handling, limits), the
-**model** parameters (length, wing chord, tail span, colour) and the
-**armament**. Copy any shipped plane as a template.
+   ```
+   planes/
+     f4u-4-corsair/
+       plane.conf          # flight model + model + armament
+       fighter.glb         # optional glTF/GLB, shipped to clients
+   ```
 
-**To add a plane:** create `planes/<id>/` with a `plane.conf` in it — nothing
-else to do. The server ships every plane's config to clients when they connect,
-so clients load them automatically (no client rebuild). Any other files (notes,
-future model meshes, ...) can live in the same directory.
+`plane.conf` is a `key = value` file with `[gun N]` sections: the whole **flight
+model** (mass, wing, engine power, lift/drag, handling, limits), the **model**
+parameters (length, wing chord, tail span, colour) and the **armament**. Copy any
+shipped plane as a template.
+
+**To add a plane:** either embed a `[plane]` block in the mission (the client
+mission editor's *Planes* tab does this and can embed a model), or create
+`planes/<id>/` with a `plane.conf` in it. The server ships every plane's config
+**and model** to clients when they connect, so clients load them automatically
+(no client rebuild). A glTF/GLB file next to `plane.conf` is embedded and shipped
+too.
 
 Example:
 
@@ -143,10 +149,26 @@ color = 0.36 0.34 0.31
 `kind` is one of `building`, `tree`, `tank`, `fuel_tank`, `hill`, `runway`,
 `objective` (procedural primitives) or `model` (a glTF/GLB named by `model`).
 
+A map can also embed the **planes** it uses, making it a single self-contained
+**mission** (world + planes + models) — see [Planes](#planes):
+
+```text
+[plane f4u-4-corsair]
+name = F4U-4 Corsair
+mass = 6000
+...
+[gun 0]
+name = M2 Browning
+...
+model_name = f4u.glb
+model_data = <Base64 glTF/GLB>
+```
+
 Adding a map is just dropping a new `.map` file in `maps/`. Different maps can
 run the same gamemode with different rules, or entirely different gamemodes. The
 easiest way to make one is the **mission editor** in the client repo
-(`cargo run --bin editor`), which edits and saves these files directly.
+(`cargo run --bin editor`), which edits and saves these files (and can embed
+planes and models) directly.
 
 Two ship:
 
