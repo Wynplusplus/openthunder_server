@@ -113,24 +113,47 @@ ships its built-in defaults.
 
 ## Maps
 
-A map is a small `name = value` file under `maps/`. It picks the gamemode and
-supplies that gamemode's **rules**:
+A map is a `key = value` file under `maps/`. The header picks the gamemode and
+supplies that gamemode's **rules**; optional `[section]` blocks describe the
+world (terrain, spawn points and placed objects) and are shipped to clients
+verbatim so they can build it:
 
 ```text
 name = Training Islands
 gamemode = free_flight
 max_players = 16
+
+[terrain]
+ground_color = 0.20 0.32 0.13
+water = true
+
+[spawn]
+team = 0
+position = 0 0 0
+heading = 0
+
+[object]
+kind = building
+position = 100 0 200
+yaw = 30
+scale = 20 40 20
+color = 0.36 0.34 0.31
 ```
 
+`kind` is one of `building`, `tree`, `tank`, `fuel_tank`, `hill`, `runway`,
+`objective` (procedural primitives) or `model` (a glTF/GLB named by `model`).
+
 Adding a map is just dropping a new `.map` file in `maps/`. Different maps can
-run the same gamemode with different rules, or entirely different gamemodes.
+run the same gamemode with different rules, or entirely different gamemodes. The
+easiest way to make one is the **mission editor** in the client repo
+(`cargo run --bin editor`), which edits and saves these files directly.
 
 Two ship:
 
-- `training.map` — **Training Islands**, `free_flight`.
+- `training.map` — **Training Islands**, `free_flight` (header only; the client
+  uses its built-in terrain).
 - `pacific_islands.map` — **Pacific Islands**, `team_deathmatch` (island chain,
-  first team to 50 kills, 15-minute rounds). The client builds matching island
-  terrain for it.
+  first team to 50 kills, 15-minute rounds).
 
 ---
 

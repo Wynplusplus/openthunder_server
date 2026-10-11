@@ -259,6 +259,15 @@ fn handle_client(
     if !crew.trim().is_empty() {
         write_line(&mut writer, &ServerMessage::Crew { config: crew })?;
     }
+    // Send the map so the client can build the world.
+    if !map.text.trim().is_empty() {
+        write_line(
+            &mut writer,
+            &ServerMessage::Map {
+                text: map.text.clone(),
+            },
+        )?;
+    }
     shared
         .writers
         .lock()

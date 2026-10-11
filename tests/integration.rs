@@ -50,7 +50,7 @@ fn join(port: u16, name: &str) -> (TcpStream, BufReader<TcpStream>, String) {
     let stream = wait_for_server(port);
     let mut writer = stream.try_clone().unwrap();
     let mut reader = BufReader::new(stream);
-    writeln!(writer, "JOIN\t3\t{name}\tF4U-4 Corsair").unwrap();
+    writeln!(writer, "JOIN\t4\t{name}\tF4U-4 Corsair").unwrap();
     writer.flush().unwrap();
     let mut welcome = String::new();
     reader.read_line(&mut welcome).unwrap();
@@ -83,10 +83,11 @@ fn client_joins_and_receives_snapshots() {
     );
     assert!(welcome.contains("Training Islands"), "map name in WELCOME");
 
-    // The server ships its planes and pilot crew config right after WELCOME.
+    // The server ships its planes, pilot crew config and map right after WELCOME.
     let mut saw_planes = false;
     let mut saw_crew = false;
-    for _ in 0..3 {
+    let mut saw_map = false;
+    for _ in 0..4 {
         let mut line = String::new();
         if reader.read_line(&mut line).unwrap() == 0 {
             break;
@@ -99,9 +100,17 @@ fn client_joins_and_receives_snapshots() {
                 "crew config should carry g_tolerance, got {line:?}"
             );
         }
+        if line.starts_with("MAP") {
+            saw_map = true;
+            assert!(
+                line.contains("name") && line.contains("Training Islands"),
+                "map text should carry the name, got {line:?}"
+            );
+        }
     }
     assert!(saw_planes, "expected a PLANES message");
     assert!(saw_crew, "expected a CREW message");
+    assert!(saw_map, "expected a MAP message");
 
     // Send state and wait for a snapshot that contains us.
     writeln!(

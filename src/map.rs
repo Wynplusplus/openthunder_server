@@ -27,6 +27,9 @@ pub struct MapConfig {
     pub gamemode: String,
     /// Gamemode rules, as raw key/value pairs the gamemode interprets.
     pub rules: BTreeMap<String, String>,
+    /// The raw file text, shipped verbatim to clients so they can build the
+    /// world (see the game's `openthunder::map_doc`).
+    pub text: String,
     /// Where it was loaded from.
     pub source: PathBuf,
 }
@@ -36,9 +39,19 @@ impl MapConfig {
         let mut name = id.to_string();
         let mut gamemode = "free_flight".to_string();
         let mut rules = BTreeMap::new();
+        // Once a `[section]` starts, the `key = value` lines inside it belong to
+        // the world description, not the gamemode rules.
+        let mut in_section = false;
         for line in text.lines() {
             let line = line.trim();
             if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            if line.starts_with('[') && line.ends_with(']') {
+                in_section = true;
+                continue;
+            }
+            if in_section {
                 continue;
             }
             let Some((key, value)) = line.split_once('=') else {
@@ -59,6 +72,7 @@ impl MapConfig {
             name,
             gamemode,
             rules,
+            text: text.to_string(),
             source,
         }
     }
@@ -127,5 +141,14 @@ mod tests {
         assert_eq!(map.name, "blank");
         assert_eq!(map.gamemode, "free_flight");
         assert_eq!(map.rule_u32("max_players", 8), 8);
+    }
+
+    #[test]
+    fn section_bodies_are_not_rules() {
+        let text = "name = Custom\nscore_limit = 10\n[object]\nkind = tree\nposition = 1 2 3\n";
+        let map = MapConfig::parse("custom", text, PathBuf::from("custom.map"));
+        assert_eq!(map.rule_u32("score_limit", 0), 10);
+        assert_eq!(map.rule("kind"), None, "section keys must not become rules");
+        assert_eq!(map.text, text, "the raw text is kept for the client");
     }
 }
