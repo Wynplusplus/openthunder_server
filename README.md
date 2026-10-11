@@ -131,7 +131,12 @@ max_players = 16
 
 [terrain]
 ground_color = 0.20 0.32 0.13
+rock_color = 0.45 0.42 0.38
 water = true
+water_level = 0
+size = 8000
+resolution = 65
+heights = <Base64 little-endian f32 grid>   # omit for flat ground
 
 [spawn]
 team = 0
@@ -148,6 +153,12 @@ color = 0.36 0.34 0.31
 
 `kind` is one of `building`, `tree`, `tank`, `fuel_tank`, `hill`, `runway`,
 `objective` (procedural primitives) or `model` (a glTF/GLB named by `model`).
+
+The `[terrain]` heightmap is a `resolution × resolution` grid of heights (metres)
+spanning `size` metres, stored as one Base64 blob of little-endian `f32`s. The
+client builds a vertex-coloured mesh from it and samples the same grid for the
+ground/landing model. Everything below `water_level` is underwater. Omit
+`heights` for flat ground.
 
 A map can also embed the **planes** it uses, making it a single self-contained
 **mission** (world + planes + models) — see [Planes](#planes):
