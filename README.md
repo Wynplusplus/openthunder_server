@@ -61,6 +61,11 @@ model** (mass, wing, engine power, lift/drag, handling, limits), the **model**
 parameters (length, wing chord, tail span, colour) and the **armament**. Copy any
 shipped plane as a template.
 
+A plane's mesh can be procedural, a glTF/GLB file (`model = …`, or a `*.glb` next
+to `plane.conf`), or a **boolean solid** built from `[part]` blocks — a `shape`
+(box / sphere / cylinder / cone / capsule), an `op` (union / subtract / intersect)
+and a transform. Clients mesh the solid themselves, so no asset file is needed.
+
 **To add a plane:** either embed a `[plane]` block in the mission (the client
 mission editor's *Planes* tab does this and can embed a model), or create
 `planes/<id>/` with a `plane.conf` in it. The server ships every plane's config
