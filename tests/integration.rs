@@ -50,7 +50,7 @@ fn join(port: u16, name: &str) -> (TcpStream, BufReader<TcpStream>, String) {
     let stream = wait_for_server(port);
     let mut writer = stream.try_clone().unwrap();
     let mut reader = BufReader::new(stream);
-    writeln!(writer, "JOIN\t5\t{name}\tF4U-4 Corsair").unwrap();
+    writeln!(writer, "JOIN\t6\t{name}\tF4U-4 Corsair").unwrap();
     writer.flush().unwrap();
     let mut welcome = String::new();
     reader.read_line(&mut welcome).unwrap();
@@ -115,7 +115,7 @@ fn client_joins_and_receives_snapshots() {
     // Send state and wait for a snapshot that contains us.
     writeln!(
         writer,
-        "STATE\t0.000\t1000.000\t0.000\t0.000\t0.000\t0.000\t1.000\t0.000\t0.000\t-150.000"
+        "STATE\t0.000\t1000.000\t0.000\t0.000\t0.000\t0.000\t1.000\t0.000\t0.000\t-150.000\t0.000\t0.000\t-1.000\t0.000\t0.000\t0.000"
     )
     .unwrap();
     writer.flush().unwrap();

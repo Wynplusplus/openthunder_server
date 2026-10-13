@@ -22,6 +22,11 @@ pub struct PlayerView {
     pub team: u8,
     pub kills: u32,
     pub deaths: u32,
+    /// The client's desired direction of flight (patent US8770979B2), or
+    /// `[0, 0, 0]` when it is not aiming.
+    pub desired: [f32; 3],
+    /// The client's `(pitch, roll, yaw)` control values.
+    pub controls: [f32; 3],
 }
 
 /// Context passed to [`GameMode::on_tick`].
@@ -213,6 +218,8 @@ mod tests {
             team,
             kills,
             deaths: 0,
+            desired: [0.0, 0.0, 0.0],
+            controls: [0.0, 0.0, 0.0],
         }
     }
 

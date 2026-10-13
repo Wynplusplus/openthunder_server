@@ -33,6 +33,11 @@ struct Player {
     deaths: u32,
     /// Who last hit us, for kill credit on death.
     last_attacker: Option<u64>,
+    /// The client's **desired direction of flight** (patent US8770979B2), or
+    /// `[0, 0, 0]` when it is not aiming.
+    desired: [f32; 3],
+    /// The client's `(pitch, roll, yaw)` control values.
+    controls: [f32; 3],
 }
 
 impl Default for Player {
@@ -47,6 +52,8 @@ impl Default for Player {
             kills: 0,
             deaths: 0,
             last_attacker: None,
+            desired: [0.0, 0.0, 0.0],
+            controls: [0.0, 0.0, 0.0],
         }
     }
 }
@@ -91,6 +98,8 @@ impl Shared {
                 team: player.team,
                 kills: player.kills,
                 deaths: player.deaths,
+                desired: player.desired,
+                controls: player.controls,
             })
             .collect()
     }
@@ -296,11 +305,27 @@ fn read_loop(reader: &mut impl BufRead, shared: &Shared, id: u64) -> std::io::Re
                 position,
                 rotation,
                 velocity,
+                desired,
+                controls,
             }) => {
+                // Patent US8770979B2: the client reports its desired direction of
+                // flight, so the server can run or check the instructor itself
+                // rather than trusting the rotation blindly. Validate it is a
+                // unit vector (or zero when not aiming).
+                let magnitude =
+                    (desired[0] * desired[0] + desired[1] * desired[1] + desired[2] * desired[2])
+                        .sqrt();
+                if magnitude > 1e-3 && (magnitude - 1.0).abs() > 0.05 {
+                    eprintln!(
+                        "[server] player {id} sent a non-unit desired direction (|d| = {magnitude:.3})"
+                    );
+                }
                 if let Some(player) = shared.players.lock().unwrap().get_mut(&id) {
                     player.position = position;
                     player.rotation = rotation;
                     player.velocity = velocity;
+                    player.desired = desired;
+                    player.controls = controls;
                 }
             }
             Ok(ClientMessage::Leave) => return Ok(()),
